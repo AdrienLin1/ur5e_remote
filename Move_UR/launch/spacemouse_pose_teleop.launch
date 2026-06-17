@@ -1,0 +1,49 @@
+<launch>
+    <!-- ============================================================
+         Single-node SpaceMouse -> UR5e pose teleop (smooth, streamed).
+         No /set_robot_action server needed.
+
+         Prereqs:
+           * ur5_bringup running (External Control URP playing on pendant)
+           * spacenavd running, ros-$ROS_DISTRO-spacenav-node installed
+         ============================================================ -->
+
+    <arg name="require_deadman" default="false"/>
+    <arg name="max_lin_vel"     default="0.08"/>   <!-- m/s   at full deflection -->
+    <arg name="max_ang_vel"     default="0.35"/>   <!-- rad/s at full deflection -->
+    <arg name="rot_frame"       default="base"/>   <!-- base | tool -->
+    <arg name="use_gripper"     default="false"/>
+    <arg name="start_spacenav"  default="true"/>
+    <arg name="debug"           default="false"/>
+
+    <node if="$(arg start_spacenav)" pkg="spacenav_node" type="spacenav_node"
+          name="spacenav" output="screen">
+        <param name="zero_when_static"       value="true"/>
+        <param name="static_count_threshold" value="30"/>
+        <rosparam param="linear_scale">[1.0, 1.0, 1.0]</rosparam>
+        <rosparam param="angular_scale">[1.0, 1.0, 1.0]</rosparam>
+    </node>
+
+    <node pkg="Move_UR" type="spacemouse_pose_teleop.py"
+          name="spacemouse_pose_teleop" output="screen">
+        <param name="loop_rate"        value="50"/>    <!-- 15->50: finer streaming, less perceptible goal boundaries -->
+        <param name="goal_time"        value="0.10"/>  <!-- 0.20->0.10: ~5x loop period of lookahead, refreshed every cycle -->
+        <param name="min_send_lin"     value="0.004"/> <!-- (no longer gates sending; kept for reference) -->
+        <param name="min_send_ang"     value="0.01"/>
+        <param name="max_lin_vel"      value="$(arg max_lin_vel)"/>
+        <param name="max_ang_vel"      value="$(arg max_ang_vel)"/>
+        <param name="deadzone"         value="0.2"/>
+        <param name="vel_smoothing"    value="0.35"/>  <!-- 0.25->0.35: shorter velocity tail -> crisper stop -->
+        <param name="leash"            value="0.03"/>  <!-- 0.05->0.03: less catch-up lurch when you stop -->
+        <param name="require_deadman"  value="$(arg require_deadman)"/>
+        <param name="deadman_button"   value="0"/>
+        <param name="gripper_button"   value="1"/>
+        <param name="rot_frame"        value="$(arg rot_frame)"/>
+        <param name="tool_frame"       value="tool0_controller"/>
+        <param name="use_gripper"      value="$(arg use_gripper)"/>
+        <param name="manage_controller" value="true"/>
+        <param name="debug"            value="$(arg debug)"/>
+        <rosparam param="lin_sign">[1.0, 1.0, 1.0]</rosparam>
+        <rosparam param="ang_sign">[1.0, 1.0, 1.0]</rosparam>
+    </node>
+</launch>

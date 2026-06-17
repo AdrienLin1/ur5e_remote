@@ -1,9 +1,9 @@
 <launch>
     <arg name="is_init_robot"    default="false"/>
-    <arg name="control_mode"    default="end" />
-    <arg name="trajectory_path" default="/home/yhx/shw/src/Dataset_Collection/keypose/end_trajectory.npy" />
-    <arg name="is_collect"    default="true" />
-    <arg name="local_gripper_communicate" default="false"/>
+    <arg name="control_mode"    default="end"/>
+    <arg name="trajectory_path" default="/home/yhx/dsl/src/Dataset_Collection/demo1/traj/joint_1.npy"/>
+    <arg name="is_collect"    default="true"/>
+    <arg name="local_gripper_communicate" default="true"/>
     <arg name="robot_ip" doc="The IP address of the UR5 robot" default="192.168.1.138"/>
 
     <include file="$(find Move_UR)/launch/init_ur_robot.launch" if="$(arg is_init_robot)">

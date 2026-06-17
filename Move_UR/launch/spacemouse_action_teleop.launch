@@ -1,0 +1,49 @@
+<launch>
+    <!-- ============================================================
+         SpaceMouse -> UR5e end-effector STEP teleop via /set_robot_action
+
+         Prereqs:
+           * spacenavd running, ros-$ROS_DISTRO-spacenav-node installed
+           * ur5_bringup running (External Control URP playing on pendant)
+           * the action server is running:
+                 roslaunch Move_UR move_follow_action.launch
+             (this starts move_ur_follow_stepAction.py = /set_robot_action,
+              which also owns the Robotiq gripper)
+         ============================================================ -->
+
+    <arg name="require_deadman" default="true"/>
+    <arg name="max_step_lin"    default="0.02"/>   <!-- m   per full-deflection step -->
+    <arg name="max_step_ang"    default="0.10"/>   <!-- rad per full-deflection step -->
+    <arg name="rot_frame"       default="base"/>   <!-- base | tool -->
+    <arg name="start_spacenav"  default="true"/>
+    <arg name="debug"           default="false"/>
+
+    <!-- 3Dconnexion driver bridge -->
+    <node if="$(arg start_spacenav)" pkg="spacenav_node" type="spacenav_node"
+          name="spacenav" output="screen">
+        <param name="zero_when_static"       value="true"/>
+        <param name="static_count_threshold" value="30"/>
+        <rosparam param="linear_scale">[1.0, 1.0, 1.0]</rosparam>
+        <rosparam param="angular_scale">[1.0, 1.0, 1.0]</rosparam>
+    </node>
+
+    <!-- Teleop bridge (step / pose mode) -->
+    <node pkg="Move_UR" type="spacemouse_action_teleop.py"
+          name="spacemouse_action_teleop" output="screen">
+        <param name="max_step_lin"     value="$(arg max_step_lin)"/>
+        <param name="max_step_ang"     value="$(arg max_step_ang)"/>
+        <param name="deadzone"         value="0.2"/>
+        <param name="input_scale"      value="1.0"/>
+        <param name="poll_rate"        value="20"/>
+        <param name="settle_time"      value="0.05"/>
+        <param name="require_deadman"  value="$(arg require_deadman)"/>
+        <param name="deadman_button"   value="0"/>   <!-- hold to move  -->
+        <param name="gripper_button"   value="1"/>   <!-- toggle gripper -->
+        <param name="rot_frame"        value="$(arg rot_frame)"/>
+        <param name="tool_frame"       value="tool0_controller"/>
+        <param name="debug"            value="$(arg debug)"/>
+        <!-- per-axis sign tuning (base frame). Flip a sign if a direction is mirrored. -->
+        <rosparam param="lin_sign">[1.0, 1.0, 1.0]</rosparam>
+        <rosparam param="ang_sign">[1.0, 1.0, 1.0]</rosparam>
+    </node>
+</launch>

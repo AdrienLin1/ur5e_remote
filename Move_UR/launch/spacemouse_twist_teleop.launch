@@ -1,0 +1,54 @@
+<launch>
+    <!-- ============================================================
+         SpaceMouse -> UR5e Cartesian velocity teleop (twist_controller)
+
+         Prereqs (see scripts/SPACEMOUSE_TELEOP_README.md):
+           * spacenavd daemon running, ros-$ROS_DISTRO-spacenav-node installed
+           * ur5_bringup running (ur_robot_driver) with the External Control
+             URP program playing on the pendant
+           * twist_controller built & known to controller_manager
+         ============================================================ -->
+
+    <arg name="use_gripper"     default="true"/>
+    <arg name="require_deadman" default="true"/>
+    <arg name="max_lin_vel"     default="0.1"/>    <!-- m/s  at full deflection (start low!) -->
+    <arg name="max_ang_vel"     default="0.4"/>    <!-- rad/s at full deflection -->
+    <arg name="smoothing_alpha" default="0.15"/>   <!-- EMA: lower = smoother/laggier -->
+    <arg name="start_spacenav"  default="true"/>
+    <arg name="debug"           default="false"/>
+
+    <!-- 1) 3Dconnexion driver bridge: publishes /spacenav/twist + /spacenav/joy -->
+    <node if="$(arg start_spacenav)" pkg="spacenav_node" type="spacenav_node"
+          name="spacenav" output="screen">
+        <param name="zero_when_static"       value="true"/>
+        <param name="static_count_threshold" value="30"/>
+        <param name="static_trans_deadband"  value="0.1"/>
+        <param name="static_rot_deadband"    value="0.1"/>
+        <!-- normalize full puck deflection to ~1.0 ; tune per device (wired 350 / wireless 500) -->
+        <rosparam param="linear_scale">[1.0, 1.0, 1.0]</rosparam>
+        <rosparam param="angular_scale">[1.0, 1.0, 1.0]</rosparam>
+    </node>
+
+    <!-- 2) Teleop bridge -->
+    <node pkg="Move_UR" type="spacemouse_twist_teleop.py"
+          name="spacemouse_twist_teleop" output="screen">
+        <param name="rate"             value="125"/>
+        <param name="max_lin_vel"      value="$(arg max_lin_vel)"/>
+        <param name="max_ang_vel"      value="$(arg max_ang_vel)"/>
+        <param name="controller_gain"  value="0.1"/>   <!-- must match twist_controller twist_gain -->
+        <param name="deadzone"         value="0.15"/>
+        <param name="input_scale"      value="1.0"/>
+        <param name="smoothing_alpha"  value="$(arg smoothing_alpha)"/>
+        <param name="cmd_timeout"      value="0.3"/>
+        <param name="require_deadman"  value="$(arg require_deadman)"/>
+        <param name="deadman_button"   value="0"/>     <!-- SpaceNav LEFT  : hold to move  -->
+        <param name="gripper_button"   value="1"/>     <!-- SpaceNav RIGHT : toggle gripper -->
+        <param name="use_gripper"      value="$(arg use_gripper)"/>
+        <param name="manage_controller" value="true"/>
+        <param name="debug"            value="$(arg debug)"/>
+        <param name="restore_controller" value="scaled_pos_joint_traj_controller"/>
+        <!-- per-axis sign tuning (base frame). Flip a sign if motion is mirrored. -->
+        <rosparam param="lin_sign">[1.0, 1.0, 1.0]</rosparam>
+        <rosparam param="ang_sign">[1.0, 1.0, 1.0]</rosparam>
+    </node>
+</launch>

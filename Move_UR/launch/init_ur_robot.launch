@@ -1,5 +1,5 @@
 <launch>
-    <arg name="run_kinect_camera" default="true"/>
+    <arg name="run_kinect_camera" default="false"/>
     <arg name="run_realsense_camera" default="false"/>
     <arg name="run_gripper_control" default="false"/>
     <arg name="local_gripper_communicate" default="false"/>

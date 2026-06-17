@@ -184,11 +184,14 @@ class CollectTrajectory:
                     robot_state = np.concatenate((end_pose, np.array([gripper_state])))
                     robot_joint = np.concatenate((joint_state, np.array([gripper_state])))
                     robot_state_str = robot_state_to_string(robot_state)
+                    robot_joint_str = robot_state_to_string(robot_joint)
+                    
                     traj_length += 1
                     traj.append(robot_state)
                     traj_str.append(robot_state_str)
                     joint.append(robot_joint)
                     print(str(traj_length) + " : " + robot_state_str)
+                    print(str(traj_length) + " : " + robot_joint_str)
             else:
                 continue
         numpy_traj = np.array(traj, dtype = np.float32)

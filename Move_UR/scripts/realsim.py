@@ -15,9 +15,6 @@ from robotiq_2f_gripper_control.msg import Robotiq2FGripper_robot_input
 import requests
 import io
 from utils.kinect_camera import KinectDK
-import zmq
-import base64
-
 
 SERVER_URL = "http://10.184.17.177:8000/vla"
 instr = "pickup object 20cm"
@@ -120,32 +117,18 @@ def send_multi_view_online_data(hand_img, scene_img, traj):
         else:
             return None
 
-def send_single_view_online_data(scene_img, proprio_array):
-        # url =  "http://10.184.17.225:4103/vla"
-        url =  "http://10.184.17.177:8000/vla"
-        scene_img = scene_img[:,:,:3]
-        # scene_img =   cv2.resize(scene_img, (240, 180))
-        # scene_img = scene_img[:, :, ::-1]
-        print(scene_img.shape)
-        _, img_encoded = cv2.imencode('.jpg', np.array(scene_img))
-        img_bytes = io.BytesIO(img_encoded.tobytes())
-        files = {
-            "image_file": ("target_image.jpg", img_bytes, "image/jpeg"),
-        }
-        response = requests.post(url, files=files)
-        if response.status_code == 200:
-            task_info = response.json()
-            print(task_info)
-        else:
-            return None
-        print("task")
-        delta_action = task_info["action"]
-        # xyz_action = proprio_array[:3] + delta_action[:3]
-        # wxyz = proprio_array[3:-1]
-        # gripper = 1 if delta_action[-1] >0.5 else 0
-        # action = np.concatenate([xyz_action, wxyz, [gripper]])
-        print("new action", delta_action)
-        return delta_action
+def send_single_view_online_data(action):
+    action_bytes = io.BytesIO()
+    np.save(action_bytes, action)
+    action_bytes.seek(0)
+    files = {
+        "action_file": ("action.npy", action_bytes, "application/action"),
+    }
+    response = requests.post(SERVER_URL, files=files)
+    if response.status_code == 200:
+        print("Server response:", response.json())
+    else:
+        print("Failed to get a valid response from server. Status code:", response.status_code)
 
 def read_pickle(filename):
     with open(filename, 'rb') as f:
@@ -154,31 +137,27 @@ def read_pickle(filename):
 
 class MoveClient:
     def __init__(self):
-        rospy.init_node('action_client')
-        self.marker_dict = {}
+        rospy.init_node('realsim_client')
+        self.use_camera = False
         self.ur_joint_angle = None
-        self.scene_rgb_images = None
         self.ur_endeffector_position = None
-        self.realsense_rgb_image = None
         self.gripper_state = 0
-        self.last_env = None
-        self.cvbridge = CvBridge()
-        self.robot_initial_joint = [1.542957607899801, -1.3407166761210938, 1.2018647193908691, -1.75225891689443, -1.6117513815509241, -0.3191445509540003]
-        self.safe_lock = threading.Lock()
-        self.aruco_result_sub = rospy.Subscriber('/aruco_marker_publisher/markers', MarkerArray, self.collect_aruco_results)
         self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_angle)
         self.ur_gripper_sub = rospy.Subscriber('/Robotiq2FGripperRobotInput', Robotiq2FGripper_robot_input, self.collect_gripper_state)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
-        # self.realsense_image_sub = rospy.Subscriber('/camera/color/image_raw', Image, self.collect_realsense_image)
         rospy.wait_for_service('set_robot_action')
         self.set_action_client = rospy.ServiceProxy('/set_robot_action', Action)
         self.robot_move_num = 0
-        # self.init_camera()
+        if self.use_camera:
+            self.cvbridge = CvBridge()
+            self.scene_rgb_images = None
+            self.realsense_rgb_image = None
+            self.realsense_image_sub = rospy.Subscriber('/camera/color/image_raw', Image, self.collect_realsense_image)
+            self.init_camera()
         
     def init_camera(self):
         self.kinect_dk = KinectDK()
         img_color = self.kinect_dk.queue_color.get(timeout=10.0)
-        
         K = np.asarray(self.kinect_dk.rgb_info.K).reshape(3, 3)
         D = np.asarray(self.kinect_dk.rgb_info.D)
         self.size = img_color.shape[:2][::-1]
@@ -205,7 +184,6 @@ class MoveClient:
             self.gripper_state = 0
         else:
             self.gripper_state = 1
-        # print("gripper state", self.gripper_state)
     
     def collect_scene_rgb_image(self, image_msg):
         image = self.cvbridge.imgmsg_to_cv2(image_msg,  desired_encoding='rgb8')
@@ -262,7 +240,6 @@ class MoveClient:
             return False
     
     def robot_gripper_state_check(self, data):
-        # data = np.tanh(data)
         if data > 0:
             return 1
         else:
@@ -296,24 +273,19 @@ class MoveClient:
             # test_action_data, env_data = self.get_test_data("/home/yhx/shw/src/Dataset_Collection/sample_abcd_1_5.pkl", test_joint=False)
             action_data = self.spirl_model.run_once(env_data)
         return action_data, env_data
-   
+    
     def run(self):
         timestep = 0
         # online_data = process_data()
         while not rospy.is_shutdown():
-            # img_color = self.kinect_dk.queue_color.get(timeout=10.0)
-            hand_view = self.realsense_rgb_image
-            img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
-            # import ipdb; ipdb.set_trace()
-            if img_color is not None and self.ur_endeffector_position is not None :
-            # if img_color is not None and self.ur_endeffector_position is not None and self.realsense_rgb_image is not None :
-
+            if self.ur_endeffector_position is not None :
                 proprio_array = np.array([self.gripper_state])
                 proprio_array = np.concatenate([self.ur_endeffector_position, proprio_array])
                 # action_dict = send_data(img_color, img_depth, proprio_array, timestep)
                 # action = online_data.send_online_data(img_color, proprio_array, "pick up banana")
                 print("hereeee*************************************")
                 # action =  send_multi_view_online_data(hand_img=hand_view, scene_img = img_color, traj=proprio_array)
+                img_color = None
                 action = send_single_view_online_data(img_color, proprio_array)
                 if action is None:
                     continue
@@ -323,82 +295,6 @@ class MoveClient:
                 robot_state = self.send_robot_action(np.array(robot_action_data))
                 timestep += 1
                 
-    def serialize_numpy(self, data):
-            buffer = io.BytesIO()
-            np.save(buffer, data)
-            buffer.seek(0)
-            return base64.b64encode(buffer.getvalue()).decode('utf-8')
-        
-    def send_dmq(self, socket, position, action):
-        initial_b64 = self.serialize_numpy(position)
-        action_b64 = self.serialize_numpy(action)
-        request_data = {
-            "initial_file_b64": initial_b64,
-            "action_file_b64": action_b64,
-        }
-        socket.send_json(request_data)
-        try:
-            socket.RCVTIMEO = 1000000 
-            response_data = socket.recv_json()
-            # if "error" in response_data:
-            #     print(f"Server error: {response_data['error']}")
-            # else:
-            #     print("Server response:", response_data)
-            #     # 如果需要，可以解码图像：
-            #     # if 'camera_image_b64' in response_data:
-            #     #     img_data = base64.b64decode(response_data['camera_image_b64'])
-            #     #     # 这里可以进一步处理图像字节流
-        except zmq.error.Again:
-            print(f"Error: ZMQ Request timed out after 10 seconds. Check if server ({ZMQ_SERVER_URL}) is running.")
-        except Exception as e:
-            print(f"An unexpected error occurred: {e}")
-        finally:
-            return True
-    
-    def realsim_run(self):
-            timestep = 0
-            ZMQ_SERVER_URL = "tcp://192.168.1.100:5555"
-            context = zmq.Context()
-            socket = context.socket(zmq.REQ)
-            socket.connect(ZMQ_SERVER_URL)
-            
-            
-            directory = "/home/yhx/wzr/Dataset_Collection/demo/23/traj"
-            files = [f for f in os.listdir(directory) if( f.endswith('.npy') and f.startswith('traj_'))]
-            end_pos_list = []
-            for file in range(1,30):
-                filepath = os.path.join(directory, "traj_" + str(file) +".npy")
-                data = np.load(filepath)
-                end_pos_list.append(data)
-            end_pos = np.array(end_pos_list)
-            actions = []
-            print("end_pos", end_pos)
-            for i in range(1, len(end_pos)):
-                delta = end_pos[i,:7] - end_pos[i-1,:7]
-                delta_action = np.concatenate([delta, np.array([end_pos[i-1,7]])])# 2-1, 3-2, etc.
-                actions.append(delta_action)
-            print("actions", actions)
-            # actions = [[0.01,0,0,1,0,0,0,0]]
-            while not rospy.is_shutdown():
-                if self.ur_endeffector_position is not None :
-                    proprio_array = np.array([self.gripper_state])
-                    proprio_array = np.concatenate([self.ur_endeffector_position, proprio_array])
-                    initial_joint = np.array(self.ur_joint_angle)
-                    print("initial_joint", initial_joint)
-                    for action in actions:
-                        # robot_action_data = self.ur_endeffector_position.copy()
-                        end_action = self.ur_endeffector_position + np.array(action[:7])
-                        print("self.ur_endeffector_position", self.ur_endeffector_position)
-                        print("end", end_action)
-                        robot_action_data = np.concatenate([end_action, np.array([action[-1]])])
-                        robot_state = self.send_robot_action(np.array(robot_action_data))
-                        robot_action_data[2] = robot_action_data[2] + 0.2
-                        self.send_dmq(socket, initial_joint, robot_action_data)
-                        timestep += 1
-                    break
-            socket.close()
-            context.term()
-            
 if __name__ == "__main__":
     move_client = MoveClient()
-    move_client.realsim_run()
+    move_client.run()

@@ -16,11 +16,11 @@ Replace
 ```
 from utils.robotiq_gripper import RobotiqGripper 
 ```
-
+roslaunch realsense2_camera rs_camera.launch
 to
 
 ```
-from utils.robotiq_gripper_remote import RobotiqGripper
+from utils.robotiq_gripper_remote import RobotiqGripper\
 ```
 
 ## launch file(all new terminal need to source devel_isolated/setup.bash)
@@ -82,7 +82,7 @@ roslaunch Move_UR move_follow_trajectory.launch is_collect:=False control_mode:=
 roslaunch Move_UR data_collection.launch
 rosservice call /collect_bool_service True
 ```
-
+color_width:=640 color_height:=480 color_fps:=30 depth_width:=640 depth_height:=480 depth_fps:=30
 ### Robotiq control on terminal(local: sudo chmod 777 /dev/ttyUSB0 local_gripper_communicate:=True)
 
 ```
@@ -147,3 +147,7 @@ python src/Move_UR/scripts/useful_tool/collect_keypose.py
 ## TODO
 
 * [ ]  test robotiq remote control and change the code
+
+```
+roslaunch Move_UR spacemouse_servoj_teleop.launch debug:=true require_deadman:=false
+```

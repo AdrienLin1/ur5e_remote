@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import sys
 import rospy
-import numpy as np
+import numpy as np 
 import os
 from math import pi
 import sys
@@ -444,7 +444,12 @@ class URMoveServer:
         
         
     def init_robot(self, init_joint = None):
-        # init_joint = [ 1.8654102 , -1.7593476 , -0.99919635, -1.6415144 , -1.5742697 ,  -0.23975307 ]
+        init_joint = [ 1.8654102 , -1.7593476 , -0.99919635, -1.6415144 , -1.5742697 ,  -0.23975307 ] #shw
+        # init_joint = [ 1.69306404, -1.79133525,  1.56362963, -1.56355079, -1.59220201,   -3.45891267] #ljy
+        # init_joint = [ 1.34145767, -1.56604417, -0.90877515, -1.31122907, -1.57649643,  -0.1107381 ]
+        # init_joint =[1.4168151060687464, -1.3891313833049317, -1.0552695433246058, -1.3350795072368165, -1.4734161535846155, -0.666844669972555]
+        # init_joint =[1.4621928373919886, -1.5909811458983363, 3.139810085296631, -1.45497019708667, -1.565878693257467, -1.572402302418844] #lmy
+        
         self.client = TrajectoryClient(init_node = False)
         self.client.send_init_joint_trajectory(init_joint)
         self.gripper = RobotiqGripper(init_node = False)
@@ -456,7 +461,7 @@ class URMoveServer:
         print("robot action", robot_action)
         list_robot_action = robot_action.actions
         if len(list_robot_action) == 8:
-            result = self.client.move_once_by_end(list_robot_action[:-1], run_time = 0.8)
+            result = self.client.move_once_by_end(list_robot_action[:-1], run_time = 0.2)
         else:
             result = self.client.move_once_by_joint(list_robot_action[:-1], run_time = 0.8)
         if list_robot_action[-1] == 1:

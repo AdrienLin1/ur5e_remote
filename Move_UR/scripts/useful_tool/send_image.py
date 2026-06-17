@@ -4,7 +4,7 @@ import io
 import cv2
 
 # 定义服务端地址（例如运行在本地服务器上）
-SERVER_URL = "http://10.184.17.105:8000/act"
+SERVER_URL = "http://192.168.1.100:8000/vla"
 
 # 定义要发送的图像和深度信息数组
 image_array = np.random.randint(0, 256, (480, 640, 3), dtype=np.uint8)  # 示例图像数组
@@ -27,20 +27,24 @@ def send_data(image_array: np.ndarray, depth_array: np.ndarray, proprio_array):
     np.save(proprio_bytes, proprio_array)
     proprio_bytes.seek(0)
 
+    action_bytes = io.BytesIO()
+    np.save(action_bytes, np.array([1,1,1,1,0,0,0]))
+    action_bytes.seek(0)
+    inital_bytes = io.BytesIO()
+    np.save(inital_bytes, np.array([1,1,1,1,0,0,0]))
+    inital_bytes.seek(0)
     # 定义要发送的数据
+    # files = {
+    #     "image_file": ("image.jpg", image_bytes, "image/jpeg"),
+    #     "depth_file": ("depth.npy", depth_bytes, "application/octet-stream"),
+    #     "proprio_file": ("proprio.npy", proprio_bytes, "application/octet-stream"),
+    # }
     files = {
-        "image_file": ("image.jpg", image_bytes, "image/jpeg"),
-        "depth_file": ("depth.npy", depth_bytes, "application/octet-stream"),
-        "proprio_file": ("proprio.npy", proprio_bytes, "application/octet-stream"),
+        "initial_file": ("initial.npy", inital_bytes, "application/octet-stream"),
+        "action_file": ("action.npy", action_bytes, "application/octet-stream"),
     }
-    
-    data = {
-        "instr": instr,
-        "timestep": timestep
-    }
-
     # 发送 POST 请求到服务端
-    response = requests.post(SERVER_URL, files=files, data=data)
+    response = requests.post(SERVER_URL, files=files)
 
     # 打印服务端返回的结果
     if response.status_code == 200:
@@ -50,4 +54,4 @@ def send_data(image_array: np.ndarray, depth_array: np.ndarray, proprio_array):
 
 if __name__ == "__main__":
     # 调用函数发送数据到服务端
-    send_data(image_array, depth_array)
+    send_data(image_array, depth_array, proprio_array)

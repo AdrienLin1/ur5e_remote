@@ -9,7 +9,6 @@ import numpy as np
 from std_srvs.srv import SetBool, SetBoolRequest
 from utils.ur_trajectory import TrajectoryClient
 
-
 class ShwUr5eMoveClient:
     def __init__(self, gripper):
         self.auto_collect_state = False
@@ -28,10 +27,7 @@ class ShwUr5eMoveClient:
     
     def joint_traj_move(self, file = None, is_collect = False):
         if file is not None:
-            # joint_pos = np.load(file)
             joint_pos = np.load(file)
-            print(joint_pos)
-            # import ipdb; ipdb.set_trace()
             if is_collect:
                 self.client.move_once_by_end(joint_pos[0][:6])
                 if joint_pos[0][6]:
@@ -41,7 +37,6 @@ class ShwUr5eMoveClient:
                 self.call_auto_record_service(True)
                 rospy.sleep(0.1)
             for i in range(joint_pos.shape[0]):
-                print(joint_pos[i][:6])
                 self.client.move_once_by_joint(joint_pos[i][:6], need_time = 1)
                 rospy.sleep(0.05)
                 if joint_pos[i][6]:
@@ -53,28 +48,48 @@ class ShwUr5eMoveClient:
         
     def end_traj_move(self, file = None, is_collect = False, add_random = False):
         if file is not None:
-            end_pos = np.load(file)
-            print(end_pos)
-            # import ipdb; ipdb.set_trace()
-            print(is_collect)
+            # end_pos = np.load(file)
+            end_pos = []
+            joint_pos = []
+            directory = "/home/yhx/shw/src/Dataset_Collection/demo/ljy/traj"
+            files = [f for f in os.listdir(directory) if( f.endswith('.npy') and f.startswith('traj_'))]
+            # jointfiles = [f for f in os.listdir(directory) if( f.endswith('.npy') and f.startswith('joint_'))]
+            for file in range(1,72):
+                filepath = os.path.join(directory, "traj_" + str(file) +".npy")
+                print(filepath)
+                data = np.load(filepath)
+                data[:3] += np.random.normal(-0.005, 0.005, data[:3].shape)
+                # data[4:-1] += np.random.normal(0, 0.008, data[4:-1].shape)
+                print(data)
+                end_pos.append(data)
+            end_pos = np.array(end_pos)
+            # for file in range(1,len(files)+1):
+            #     filepath = os.path.join(directory, "joint_" + str(file) +".npy")
+            #     data = np.load(filepath)
+            #     joint_pos.append(data)
+            # joint_pos = np.array(joint_pos)
+            rospy.sleep(2)
+            self.call_auto_record_service(True)
             if is_collect:
-                print("here")
-                # self.client.move_once_by_end(end_pos[0][:7], need_time = 2.5)
-                print("moved!")
-                
+                self.client.move_once_by_end(end_pos[0][:7], need_time =4.5)
+                # self.client.move_once_by_joint(joint_pos[i][:6], need_time = 1)
                 if end_pos[0][7]:
                     self.gripper.close_gripper()
                 else:
                     self.gripper.open_gripper()
-                self.call_auto_record_service(True)
-            for i in range(1, end_pos.shape[0]):
+                # self.call_auto_record_service(True)
+            print(end_pos.shape)
+            for i in range(end_pos.shape[0]):
                 self.client.move_once_by_end(end_pos[i][:7], need_time = 2.5)
+                # self.client.move_once_by_joint(joint_pos[i][:6], need_time = 1)
                 if end_pos[i][7]:
                     self.gripper.close_gripper()
-                    rospy.sleep(1)
+                    rospy.sleep(0.5)
                 else:
                     self.gripper.open_gripper()
-                    rospy.sleep(1)
+                    rospy.sleep(0.5)
+            # self.gripper.open_gripper()
+            rospy.sleep(2)
             if is_collect:
                 self.call_auto_record_service(False)
             self.gripper.open_gripper()
@@ -117,8 +132,6 @@ if __name__ == "__main__":
     is_collect = rospy.get_param('~is_collect')
     control_mode = rospy.get_param('~control_mode')
     trajectory_path = rospy.get_param('~trajectory_path')
-    trajectory_path = "/home/yhx/shw/src/Dataset_Collection/keypose/2/joint_trajectory.npy"
-
     local_gripper_control = rospy.get_param('~local_gripper_communicate')
     robot_ip = rospy.get_param('~robot_ip')
     if local_gripper_control:
