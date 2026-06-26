@@ -1,0 +1,41 @@
+<launch>
+    <!-- Complete VR teleop entry:
+         UDP JSON from headset -> /wrist_relative_to_waist PoseStamped
+         -> waist_wrist_servoj_teleop -> forward_position_controller -> servoJ. -->
+
+    <arg name="udp_host" default="0.0.0.0"/>
+    <arg name="udp_port" default="5005"/>
+    <arg name="pelvis_role" default="Pelvis"/>
+    <arg name="hand_role" default="RIGHT_HAND"/>
+    <arg name="pose_topic" default="/wrist_relative_to_waist"/>
+
+    <arg name="require_deadman" default="false"/>
+    <arg name="debug" default="false"/>
+
+    <arg name="sensor_pos_range" default="0.50"/>
+    <arg name="sensor_rot_range" default="0.70"/>
+    <arg name="max_lin_vel" default="0.05"/>
+    <arg name="max_ang_vel" default="0.25"/>
+
+    <node pkg="Move_UR" type="vr_udp_pose_bridge.py"
+          name="vr_udp_pose_bridge" output="screen">
+        <param name="host" value="$(arg udp_host)"/>
+        <param name="port" value="$(arg udp_port)"/>
+        <param name="pelvis_role" value="$(arg pelvis_role)"/>
+        <param name="hand_role" value="$(arg hand_role)"/>
+        <param name="output_topic" value="$(arg pose_topic)"/>
+        <param name="frame_id" value="waist"/>
+        <param name="max_frame_gap" value="2"/>
+        <param name="debug" value="$(arg debug)"/>
+    </node>
+
+    <include file="$(find Move_UR)/launch/waist_wrist_servoj_teleop.launch">
+        <arg name="pose_topic" value="$(arg pose_topic)"/>
+        <arg name="require_deadman" value="$(arg require_deadman)"/>
+        <arg name="debug" value="$(arg debug)"/>
+        <arg name="sensor_pos_range" value="$(arg sensor_pos_range)"/>
+        <arg name="sensor_rot_range" value="$(arg sensor_rot_range)"/>
+        <arg name="max_lin_vel" value="$(arg max_lin_vel)"/>
+        <arg name="max_ang_vel" value="$(arg max_ang_vel)"/>
+    </include>
+</launch>

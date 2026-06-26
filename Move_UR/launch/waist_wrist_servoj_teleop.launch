@@ -1,0 +1,72 @@
+<launch>
+    <!-- Waist/wrist relative pose -> UR5/UR5e servoJ teleop.
+         Start robot communication first, then publish geometry_msgs/PoseStamped on pose_topic. -->
+
+    <arg name="require_deadman" default="false"/>
+    <arg name="debug" default="false"/>
+    <arg name="use_gripper" default="false"/>
+
+    <!-- Sensor input: hand/wrist pose expressed relative to waist. -->
+    <arg name="pose_topic" default="/wrist_relative_to_waist"/>
+    <arg name="recenter_topic" default="/waist_wrist_servoj_teleop/recenter"/>
+
+    <!-- Sensor deflection that maps to full robot TCP speed. Start conservative. -->
+    <arg name="sensor_pos_range" default="0.05"/>  <!-- m -->
+    <arg name="sensor_rot_range" default="0.35"/>  <!-- rad -->
+
+    <!-- Robot TCP speed limits at full sensor deflection. -->
+    <arg name="max_lin_vel" default="0.005"/>       <!-- m/s -->
+    <arg name="max_ang_vel" default="0.0"/>       <!-- rad/s -->
+
+    <rosparam ns="forward_position_controller">
+        type: position_controllers/JointGroupPositionController
+        joints:
+          - shoulder_pan_joint
+          - shoulder_lift_joint
+          - elbow_joint
+          - wrist_1_joint
+          - wrist_2_joint
+          - wrist_3_joint
+    </rosparam>
+
+    <node pkg="Move_UR" type="waist_wrist_servoj_teleop.py"
+          name="waist_wrist_servoj_teleop" output="screen">
+        <param name="rate" value="125"/>
+        <param name="pose_topic" value="$(arg pose_topic)"/>
+        <param name="recenter_topic" value="$(arg recenter_topic)"/>
+
+        <param name="sensor_pos_range" value="$(arg sensor_pos_range)"/>
+        <param name="sensor_rot_range" value="$(arg sensor_rot_range)"/>
+
+        <param name="max_lin_vel" value="$(arg max_lin_vel)"/>
+        <param name="max_ang_vel" value="$(arg max_ang_vel)"/>
+        <param name="deadzone" value="0.2"/>
+        <param name="input_scale" value="1.0"/>
+        <param name="vel_smoothing" value="0.25"/>
+        <param name="cmd_timeout" value="0.3"/>
+        <param name="damping" value="0.05"/>
+        <param name="max_joint_speed" value="1.0"/>
+
+        <param name="require_deadman" value="$(arg require_deadman)"/>
+        <param name="use_gripper" value="$(arg use_gripper)"/>
+        <param name="zero_on_enable" value="true"/>
+
+        <param name="manage_controller" value="true"/>
+        <param name="restore_controller" value="scaled_pos_joint_traj_controller"/>
+        <param name="base_frame" value="base"/>
+        <param name="tip_frame" value="tool0"/>
+
+        <!-- Axis signs after mapping the sensor frame into robot base. Flip axes here while tuning. -->
+        <rosparam param="lin_sign">[1.0, 1.0, 1.0]</rosparam>
+        <rosparam param="ang_sign">[1.0, 1.0, 1.0]</rosparam>
+
+        <!-- 3x3 row-major rotation from waist/sensor coordinates to robot base coordinates. -->
+        <rosparam param="sensor_to_base_rotation">
+          [1.0, 0.0, 0.0,
+           0.0, 1.0, 0.0,
+           0.0, 0.0, 1.0]
+        </rosparam>
+
+        <param name="debug" value="$(arg debug)"/>
+    </node>
+</launch>
